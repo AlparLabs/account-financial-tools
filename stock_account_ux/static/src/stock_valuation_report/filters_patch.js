@@ -41,6 +41,8 @@ patch(StockValuationReportFilters.prototype, {
             resIds: this.controller.state.productIds || [],
             update: (resIds) => this.controller.setProductIds(resIds),
             placeholder: _t("Products"),
+            // Archived products can still carry a booked balance, and the filter brings it.
+            context: { active_test: false },
         };
     },
 
@@ -76,6 +78,17 @@ patch(StockValuationReportFilters.prototype, {
         ];
     },
 
+    get stockMoveTypeOptions() {
+        return [
+            { value: "purchase", label: _t("Purchases") },
+            { value: "sale", label: _t("Sales") },
+            { value: "inventory", label: _t("Inventory Adjustments") },
+            { value: "scrap", label: _t("Scraps") },
+            { value: "production", label: _t("Manufacturing") },
+            { value: "intercompany_transit", label: _t("Inter-company Transit") },
+        ];
+    },
+
     // -- Estado / handlers ----------------------------------------------------
     isFilterSelected(key, value) {
         return (this.controller.state[key] || []).includes(value);
@@ -91,5 +104,9 @@ patch(StockValuationReportFilters.prototype, {
 
     onLineTypeToggle(value) {
         return this.controller.toggleLineType(value);
+    },
+
+    onStockMoveTypeToggle(value) {
+        return this.controller.toggleStockMoveType(value);
     },
 });

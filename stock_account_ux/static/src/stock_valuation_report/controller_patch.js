@@ -23,6 +23,7 @@ patch(StockValuationReportController.prototype, {
         state.costMethods ??= [];
         state.valuations ??= [];
         state.lineTypes ??= [];
+        state.stockMoveTypes ??= [];
         return state;
     },
 
@@ -45,6 +46,7 @@ patch(StockValuationReportController.prototype, {
             cost_methods: state.costMethods,
             valuations: state.valuations,
             line_types: state.lineTypes,
+            stock_move_types: state.stockMoveTypes,
         };
         const res = await this.orm.call(
             "stock_account.stock.valuation.report",
@@ -97,10 +99,19 @@ patch(StockValuationReportController.prototype, {
 
     // -- Drill-down del Balance inicial (Mejora 2, AC2) -----------------------
     async _openAccountLedger(accountId) {
+        const state = this._valuationFilterState();
         const action = await this.orm.call(
             "stock_account.stock.valuation.report",
             "action_open_account_ledger",
-            [accountId, this.state.date.toISODate() || false]
+            [accountId, this.state.date.toISODate() || false],
+            {
+                filters: {
+                    product_ids: state.productIds,
+                    categ_ids: state.categIds,
+                    cost_methods: state.costMethods,
+                    valuations: state.valuations,
+                },
+            }
         );
         return this.actionService.doAction(action);
     },
@@ -167,6 +178,7 @@ patch(StockValuationReportController.prototype, {
                     categ_ids: state.categIds,
                     cost_methods: state.costMethods,
                     valuations: state.valuations,
+                    stock_move_types: state.stockMoveTypes,
                 },
             }
         );
@@ -201,8 +213,27 @@ patch(StockValuationReportController.prototype, {
         return this.toggleValuationFilterValue("valuations", value);
     },
 
+    // Stock Move Types only applies to stock moves: leaving "Stock Moves" alone in
+    // Movement Type clears it.
     toggleLineType(value) {
-        return this.toggleValuationFilterValue("lineTypes", value);
+        const state = this._valuationFilterState();
+        const lineTypes = state.lineTypes.includes(value)
+            ? state.lineTypes.filter((v) => v !== value)
+            : [...state.lineTypes, value];
+        if (lineTypes.length !== 1 || lineTypes[0] !== "stock_move") {
+            state.stockMoveTypes = [];
+        }
+        state.lineTypes = lineTypes;
+        return this.loadReportData();
+    },
+
+    // Selecting a Stock Move Type moves Movement Type to "Stock Moves" only.
+    toggleStockMoveType(value) {
+        const state = this._valuationFilterState();
+        if (!state.stockMoveTypes.includes(value)) {
+            state.lineTypes = ["stock_move"];
+        }
+        return this.toggleValuationFilterValue("stockMoveTypes", value);
     },
 
     // Generar el asiento respetando TODOS los filtros activos (Mejora 1, tarea
@@ -218,6 +249,7 @@ patch(StockValuationReportController.prototype, {
             cost_methods: state.costMethods,
             valuations: state.valuations,
             line_types: state.lineTypes,
+            stock_move_types: state.stockMoveTypes,
         };
         const args = [[this.companyId]];
         const date = serializeDate(this.state.date);
